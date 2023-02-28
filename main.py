@@ -35,14 +35,26 @@ def timetosec(t):
     sec = int(t_array[0]) * 3600 + int(t_array[1]) * 60
     return sec
 
-def sleepwarn_window(): #sleep warning window function
-    sleep_warning = int(settings['GUI']['sleep_warning'])
+def sleepwarn_window(sleep_warning): #sleep warning window function
+
+    # not sure if this would be better as a blocking window, or a non-blocking popup that doesn't update
+    start = int(time.time())
+    i = int(time.time()) - start
+
     layout = [
-        [psg.T(f'{sleep_warning} seconds before sleep')],
-        [psg.Submit()]
+        [psg.T(f'{sleep_warning - i} seconds before sleep', key='sleep_warning')]
     ]
-    window = psg.Window('bedtime soon', layout)
-    event, values = window.read()
+    window = psg.Window('Bedtime Reminder', layout, keep_on_top=True, grab_anywhere=True, no_titlebar=True)
+    while True:
+        event, values = window.read(timeout=5)
+        if i == int(time.time()) - start:
+            continue
+        i = int(time.time()) - start
+        if i >= sleep_warning or event == psg.WINDOW_CLOSED:
+            break
+        else:
+            window['sleep_warning'].update(f'{sleep_warning - i} seconds before sleep')
+    
     window.close()
 
 def settings_window(): #settings window function
@@ -69,7 +81,7 @@ def settings_window(): #settings window function
         elif event == 'break_in' and values['break_in'] and values['break_in'][-1] not in '0123456789':
             window['break_in'].update(values['break_in'][:-1])
 
-        elif event == 'bed_time' and values['break_in'] and values['break_in'][-1] not in '0123456789:':
+        elif event == 'bed_time' and values['bed_time'] and values['bed_time'][-1] not in '0123456789:':
             window['bed_time'].update(values['bed_time'][:-1])
 
         # submit settings event
@@ -121,19 +133,23 @@ def main_window():
         if event in (psg.WINDOW_CLOSED, "Cancel"):
             break
 
-        #sleepwarn event
-        #finds current time in seconds and compares to stored bed time
+        # sleepwarn event
+        # finds current time in seconds and compares to stored bed time
         if (int(time.time())+time_zone+sleep_warning)%86400 == bed_time:
-            sleepwarn_window()
+            print("bed time!")
+            # sleepwarn_window(sleep_warning)
 
-        #sleep event
-        #finds current time in seconds and compares to stored bed time
-        if (int(time.time())+time_zone)%86400 == bed_time:
-            #still need to add a window pop up when this goes off
+        # sleep event
+        # finds current time in seconds and compares to stored bed time
+        elif (int(time.time())+time_zone)%86400 == bed_time:
+            if not sleep_mode:
+                print("bed time warning!")
+            # still need to add a window pop up when this goes off
+            sleepwarn_window(sleep_warning)
             sleep_mode = True
 
         # start timer event
-        if event == 'toggle' and paused:
+        elif event == 'toggle' and paused:
             paused = False
             start_time = int(time.time())
             window['toggle'].update("Stop Timer")
@@ -159,12 +175,14 @@ def main_window():
         elif event == 'Settings':
             settings_window()
 
-            # update period lengths and timerwith new settings
+            # update period lengths and timer with new settings
             if not paused and work_period != int(settings['GUI']['work_period']) or break_period != int(settings['GUI']['break_period']):
                 work_period = int(settings['GUI']['work_period'])
                 break_period = int(settings['GUI']['break_period'])
                 periods = [work_period, break_period]
                 time_left = get_time_left(start_time, periods[i(work_time)])
+
+            bed_time = int(settings['GUI']['bed_time'])
 
         # update timer if not paused
         if not paused: 
