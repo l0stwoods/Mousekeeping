@@ -43,6 +43,7 @@ def sleepwarn_window(): #sleep warning window function
     ]
     window = psg.Window('bedtime soon', layout)
     event, values = window.read()
+    window.BringToFront() #pops the window to the front
     window.close()
 
 def settings_window(): #settings window function
@@ -160,7 +161,7 @@ def main_window():
         #Settings event
         elif event == 'Settings':
             settings_window()
-
+            bed_time = int(settings['GUI']['bed_time'])
             # update period lengths and timerwith new settings
             if not paused and work_period != int(settings['GUI']['work_period']) or break_period != int(settings['GUI']['break_period']):
                 work_period = int(settings['GUI']['work_period'])
