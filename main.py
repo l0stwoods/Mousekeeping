@@ -147,10 +147,11 @@ def main_window():
         elif event == 'Settings':
             settings_window()
 
-            # update period lengths and timer with new settings
+            # update period lengths and timerwith new settings
             work_period = int(settings['GUI']['work_period'])
             break_period = int(settings['GUI']['break_period'])
-            time_left = get_time_left(start_time, periods[i(work_time)])
+            if not paused:
+                time_left = get_time_left(start_time, periods[i(work_time)])
 
         # update timer if not paused
         if not paused: 
