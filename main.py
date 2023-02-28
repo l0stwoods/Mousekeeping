@@ -6,11 +6,11 @@ import time
 
 '''
 Functionality still to be added:
-- The actual sleep timer
-    - make sure sleep time takes precedence over work timer
-- ways to configure settings
-    - ex: length of work/break periods
-- pop-up functionality (should include images)
+- add other config file arguments to settings menu
+    - ex: bed time, sleep warning etc
+- make settings menu only take valid arguments
+    - just add if statements to check validity before writing
+- make the sleep and work pop up windows and add images
 
 Probably stretch goals:
 - alt-text/hover text
@@ -28,26 +28,55 @@ def get_current_time():
 def get_time_left(start, length):
     return start + length - int(time.time())
 
+def sleepwarn_window(): #sleep warning window function
+    sleep_warning = int(settings['GUI']['sleep_warning'])
+    layout = [
+        [psg.T(f'{sleep_warning} seconds before sleep')],
+        [psg.Submit()]
+    ]
+    window = psg.Window('bedtime soon', layout)
+    event, values = window.read()
+    window.close()
+
+def settings_window(): #settings window function
+    layout = [
+        [psg.Text('Set Work Time', size =(15, 1)), psg.InputText()],
+        [psg.Text('Set Break Time', size =(15, 1)), psg.InputText()],
+        [psg.Submit(), psg.Cancel()]
+    ]
+    window = psg.Window('Settings', layout)
+    event, values = window.read()
+    settings['GUI']['work_period'] = values[0]
+    settings['GUI']['break_period'] = values[1]
+    window.close()
+
 def main_window():
-    work_period = 1500 # 25 minutes in seconds, by default
-    break_period = 300 # 5 minutes in seconds, by default
+    work_period = int(settings['GUI']['work_period']) # 25 minutes in seconds, by default
+    break_period = int(settings['GUI']['break_period']) # 5 minutes in seconds, by default
     ''' smaller values, for testing
     work_period = 2
     break_period = 2
     '''
+    bed_time = int(settings['GUI']['bed_time'])
+    sleep_warning = int(settings['GUI']['sleep_warning'])
     periods = [work_period, break_period]
     work_time = True # True = periods[0], False = periods[1]
 
     time_left = work_period
     paused = True
+    sleep_mode = False
 
-    title = "Mousekeeping"
+    time_zone = int(settings['GUI']['time_zone'])
+    print(time_zone)
+    title = settings['GUI']['title']
     layout = [
         [psg.T(f"Current time: {get_current_time()}", key="current_time")],
+        #this is just to see the internal time for debugging sleep timer
+        [psg.T(f"Current time: {(int(time.time())+time_zone)%86400}", key="time_s")],
         [psg.T("")],
         [psg.T(f"{'Work' if work_time else 'Break'} Timer:", key='timer_name')],
         [psg.T(f"{(periods[i(work_time)] // 60):0>2}:{(periods[i(work_time)] % 60):0>2}{', Paused' if paused else ''}", key='timer')],
-        [psg.B("Start Timer", key='toggle', enable_events=True), psg.B("Reset Timer"), psg.Cancel()]
+        [psg.B("Start Timer", key='toggle', enable_events=True), psg.B("Reset Timer"), psg.B("Settings"), psg.Cancel()]
     ]
 
     # initialize window object 
@@ -59,6 +88,17 @@ def main_window():
         if event in (psg.WINDOW_CLOSED, "Cancel"):
             break
 
+        #sleepwarn event
+        #finds current time in seconds and compares to stored bed time
+        if (int(time.time())+time_zone+sleep_warning)%86400 == bed_time:
+            sleepwarn_window()
+
+        #sleep event
+        #finds current time in seconds and compares to stored bed time
+        if (int(time.time())+time_zone)%86400 == bed_time:
+            #still need to add a window pop up when this goes off
+            sleep_mode = True
+
         # start timer event
         if event == 'toggle' and paused:
             paused = False
@@ -69,6 +109,7 @@ def main_window():
 
         # reset timer event
         elif event == 'Reset Timer' and not paused:
+            periods = [int(settings['GUI']['work_period']), int(settings['GUI']['break_period'])]
             start_time = int(time.time())
             time_left = get_time_left(start_time, periods[i(work_time)])
             work_time = True
@@ -80,6 +121,10 @@ def main_window():
             paused = True
             window['toggle'].update("Restart Timer")
             window.refresh()
+
+        #Settings event
+        elif event == 'Settings':
+            settings_window()
 
         # update timer if not paused
         if not paused: 
@@ -95,6 +140,7 @@ def main_window():
 
         window['timer'].update(f"{(time_left // 60):0>2}:{(time_left % 60):0>2}{', Paused' if paused else ''}")
         window['current_time'].update(f"Current time: {get_current_time()}")
+        window['time_s'].update(f"Current time: {(int(time.time())+time_zone)%86400}")
         window['timer_name'].update(f"{'Work' if work_time else 'Break'} Timer:")
 
     window.close()
