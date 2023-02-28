@@ -28,6 +28,13 @@ def get_current_time():
 def get_time_left(start, length):
     return start + length - int(time.time())
 
+#converts hr:min to seconds could maybe implement am/pm instead of military time
+def timetosec(t):
+    t_array = t.split(':')
+    print(t_array)
+    sec = int(t_array[0]) * 3600 + int(t_array[1]) * 60
+    return sec
+
 def sleepwarn_window(): #sleep warning window function
     sleep_warning = int(settings['GUI']['sleep_warning'])
     layout = [
@@ -42,6 +49,7 @@ def settings_window(): #settings window function
     layout = [
         [psg.Text('Set Work Time', size =(15, 1)), psg.InputText(key='work_in', enable_events=True)],
         [psg.Text('Set Break Time', size =(15, 1)), psg.InputText(key='break_in', enable_events=True)],
+        [psg.Text('Set Bed Time (hr:min)', size =(15, 1)), psg.InputText(key='bed_time', enable_events=True)],
         [psg.Submit(), psg.Cancel()]
     ]
     window = psg.Window('Settings', layout)
@@ -61,13 +69,19 @@ def settings_window(): #settings window function
         elif event == 'break_in' and values['break_in'] and values['break_in'][-1] not in '0123456789':
             window['break_in'].update(values['break_in'][:-1])
 
+        elif event == 'bed_time' and values['break_in'] and values['break_in'][-1] not in '0123456789:':
+            window['bed_time'].update(values['bed_time'][:-1])
+
         # submit settings event
         elif event == "Submit":
             # replaces setting only if input is given to field
             if values['work_in'] != '':
-                settings['GUI']['work_period'] = values['work_in']
+                settings['GUI']['work_period'] = int(values['work_in'])*60
             if values['break_in'] != '':
-                settings['GUI']['break_period'] = values['break_in']
+                settings['GUI']['break_period'] = int(values['break_in'])*60
+            if values['bed_time'] != '':
+                settings['GUI']['bed_time'] = timetosec(values['bed_time'])
+            break
 
     window.close()
 
@@ -148,9 +162,10 @@ def main_window():
             settings_window()
 
             # update period lengths and timerwith new settings
-            work_period = int(settings['GUI']['work_period'])
-            break_period = int(settings['GUI']['break_period'])
-            if not paused:
+            if not paused and work_period != int(settings['GUI']['work_period']) or break_period != int(settings['GUI']['break_period']):
+                work_period = int(settings['GUI']['work_period'])
+                break_period = int(settings['GUI']['break_period'])
+                periods = [work_period, break_period]
                 time_left = get_time_left(start_time, periods[i(work_time)])
 
         # update timer if not paused
