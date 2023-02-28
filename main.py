@@ -38,6 +38,8 @@ def timetosec(t):
 def sleepwarn_window(sleep_warning): #sleep warning window function
 
     # not sure if this would be better as a blocking window, or a non-blocking popup that doesn't update
+
+    # records current time the window pops up
     start = int(time.time())
     i = int(time.time()) - start
 
@@ -133,13 +135,13 @@ def main_window():
         if event in (psg.WINDOW_CLOSED, "Cancel"):
             break
 
-        # sleepwarn event
+        # sleep event
         # finds current time in seconds and compares to stored bed time
         if (int(time.time())+time_zone+sleep_warning)%86400 == bed_time:
             print("bed time!")
             # sleepwarn_window(sleep_warning)
 
-        # sleep event
+        # sleep warn event
         # finds current time in seconds and compares to stored bed time
         elif (int(time.time())+time_zone)%86400 == bed_time:
             if not sleep_mode:
@@ -147,6 +149,11 @@ def main_window():
             # still need to add a window pop up when this goes off
             sleepwarn_window(sleep_warning)
             sleep_mode = True
+
+            # consider combining the bed time event here
+
+            # idea: record the current mouse position when bedtime hits, 
+            #   if the mouse is in a different spot => user is awake 
 
         # start timer event
         elif event == 'toggle' and paused:
