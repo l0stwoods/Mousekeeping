@@ -40,14 +40,35 @@ def sleepwarn_window(): #sleep warning window function
 
 def settings_window(): #settings window function
     layout = [
-        [psg.Text('Set Work Time', size =(15, 1)), psg.InputText()],
-        [psg.Text('Set Break Time', size =(15, 1)), psg.InputText()],
+        [psg.Text('Set Work Time', size =(15, 1)), psg.InputText(key='work_in', enable_events=True)],
+        [psg.Text('Set Break Time', size =(15, 1)), psg.InputText(key='break_in', enable_events=True)],
         [psg.Submit(), psg.Cancel()]
     ]
     window = psg.Window('Settings', layout)
-    event, values = window.read()
-    settings['GUI']['work_period'] = values[0]
-    settings['GUI']['break_period'] = values[1]
+
+    while True:
+        event, values = window.read()
+
+        # close window event
+        if event in (psg.WINDOW_CLOSED, "Cancel"):
+            break
+
+        # input character into work time event
+        if event == 'work_in' and values['work_in'] and values['work_in'][-1] not in '0123456789':
+            window['work_in'].update(values['work_in'][:-1])
+
+        # input character into break time event
+        elif event == 'break_in' and values['break_in'] and values['break_in'][-1] not in '0123456789':
+            window['break_in'].update(values['break_in'][:-1])
+
+        # submit settings event
+        elif event == "Submit":
+            # replaces setting only if input is given to field
+            if values['work_in'] != '':
+                settings['GUI']['work_period'] = values['work_in']
+            if values['break_in'] != '':
+                settings['GUI']['break_period'] = values['break_in']
+
     window.close()
 
 def main_window():
@@ -125,6 +146,11 @@ def main_window():
         #Settings event
         elif event == 'Settings':
             settings_window()
+
+            # update period lengths and timer with new settings
+            work_period = int(settings['GUI']['work_period'])
+            break_period = int(settings['GUI']['break_period'])
+            time_left = get_time_left(start_time, periods[i(work_time)])
 
         # update timer if not paused
         if not paused: 
