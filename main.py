@@ -4,6 +4,19 @@ import time
 
 # heavily guided by https://www.youtube.com/watch?v=pmDdUT2Txbs
 
+'''
+Functionality still to be added:
+- The actual sleep timer
+    - make sure sleep time takes precedence over work timer
+- ways to configure settings
+    - ex: length of work/break periods
+- pop-up functionality (should include images)
+
+Probably stretch goals:
+- alt-text/hover text
+- ???
+'''
+
 # function to return corresponding 0 if True, 1 if False
 def i(bool):
     return 0 if bool else 1
@@ -16,7 +29,6 @@ def get_time_left(start, length):
     return start + length - int(time.time())
 
 def main_window():
-
     work_period = 1500 # 25 minutes in seconds, by default
     break_period = 300 # 5 minutes in seconds, by default
     ''' smaller values, for testing
