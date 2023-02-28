@@ -48,9 +48,9 @@ def sleepwarn_window(): #sleep warning window function
 
 def settings_window(): #settings window function
     layout = [
-        [psg.Text('Set Work Time', size =(15, 1)), psg.InputText(key='work_in', enable_events=True)],
-        [psg.Text('Set Break Time', size =(15, 1)), psg.InputText(key='break_in', enable_events=True)],
-        [psg.Text('Set Bed Time (hr:min)', size =(15, 1)), psg.InputText(key='bed_time', enable_events=True)],
+        [psg.Text('Set Work Time (mins)', size =(18, 1)), psg.InputText(key='work_in', enable_events=True, s=15)],
+        [psg.Text('Set Break Time (mins)', size =(18, 1)), psg.InputText(key='break_in', enable_events=True, s=15)],
+        [psg.Text('Set Bed Time (hr:min)', size =(18, 1)), psg.InputText(key='bed_time', enable_events=True, s=15)],
         [psg.Submit(), psg.Cancel()]
     ]
     window = psg.Window('Settings', layout)
@@ -87,17 +87,15 @@ def settings_window(): #settings window function
     window.close()
 
 def main_window():
-    work_period = int(settings['GUI']['work_period']) # 25 minutes in seconds, by default
-    break_period = int(settings['GUI']['break_period']) # 5 minutes in seconds, by default
-    ''' smaller values, for testing
-    work_period = 2
-    break_period = 2
-    '''
+
+    # retrieve variables from config file 
+    work_period = int(settings['GUI']['work_period']) 
+    break_period = int(settings['GUI']['break_period']) 
     bed_time = int(settings['GUI']['bed_time'])
     sleep_warning = int(settings['GUI']['sleep_warning'])
     periods = [work_period, break_period]
-    work_time = True # True = periods[0], False = periods[1]
 
+    work_time = True # True -> periods[0], False -> periods[1]
     time_left = work_period
     paused = True
     sleep_mode = False
