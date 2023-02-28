@@ -46,7 +46,10 @@ def sleepwarn_window(sleep_warning): #sleep warning window function
     layout = [
         [psg.T(f'{sleep_warning - i} seconds before sleep', key='sleep_warning')]
     ]
-    window = psg.Window('Bedtime Reminder', layout, keep_on_top=True, grab_anywhere=True, no_titlebar=True)
+    window = psg.Window(
+        'Bedtime Reminder', layout, 
+        keep_on_top=True, grab_anywhere=True, no_titlebar=True
+    )
     while True:
         event, values = window.read(timeout=5)
         if i == int(time.time()) - start:
@@ -112,6 +115,7 @@ def main_window():
     time_left = work_period
     paused = True
     sleep_mode = False
+    start_time = -1
 
     time_zone = int(settings['GUI']['time_zone'])
     print(time_zone)
@@ -150,7 +154,7 @@ def main_window():
             sleepwarn_window(sleep_warning)
             sleep_mode = True
 
-            # consider combining the bed time event here
+            # ====== consider combining the bed time event here ======
 
             # idea: record the current mouse position when bedtime hits, 
             #   if the mouse is in a different spot => user is awake 
@@ -164,7 +168,7 @@ def main_window():
             # window.read(timeout=1)
 
         # reset timer event
-        elif event == 'Reset Timer' and not paused:
+        elif event == 'Reset Timer':
             periods = [int(settings['GUI']['work_period']), int(settings['GUI']['break_period'])]
             start_time = int(time.time())
             time_left = get_time_left(start_time, periods[i(work_time)])
@@ -188,24 +192,35 @@ def main_window():
                 work_period = int(settings['GUI']['work_period'])
                 break_period = int(settings['GUI']['break_period'])
                 periods = [work_period, break_period]
+                time_left = get_time_left(start_time if start_time != -1 else int(time.time()), periods[i(work_time)])
+
+        if sleep_mode:
+            pass
+
+        # pause timer functionality during sleep mode
+        else: 
+            # update timer if not paused
+            if not paused: 
                 time_left = get_time_left(start_time, periods[i(work_time)])
 
-        # update timer if not paused
-        if not paused: 
-            time_left = get_time_left(start_time, periods[i(work_time)])
+                # switch phases from work -> break or break -> work
+                if time_left <= 0:  
+                    psg.popup_auto_close(
+                        f"{'Work' if work_time else 'Break'} time is over!",
+                        auto_close=True,
+                        auto_close_duration=10,
+                        keep_on_top=True
+                    )
+                    work_time = not work_time
+                    paused = True
+                    window['toggle'].update("Start Timer")
+                    start_time = int(time.time())
+                    time_left = get_time_left(start_time, periods[i(work_time)])
 
-            # switch phases from work -> break or break -> work
-            if time_left <= 0:  
-                work_time = not work_time
-                paused = True
-                window['toggle'].update("Start Timer")
-                start_time = int(time.time())
-                time_left = get_time_left(start_time, periods[i(work_time)])
-
-        window['timer'].update(f"{(time_left // 60):0>2}:{(time_left % 60):0>2}{', Paused' if paused else ''}")
-        window['current_time'].update(f"Current time: {get_current_time()}")
-        window['time_s'].update(f"Current time: {(int(time.time())+time_zone)%86400}")
-        window['timer_name'].update(f"{'Work' if work_time else 'Break'} Timer:")
+            window['timer'].update(f"{(time_left // 60):0>2}:{(time_left % 60):0>2}{', Paused' if paused else ''}")
+            window['current_time'].update(f"Current time: {get_current_time()}")
+            window['time_s'].update(f"Current time: {(int(time.time())+time_zone)%86400}")
+            window['timer_name'].update(f"{'Work' if work_time else 'Break'} Timer:")
 
     window.close()
 
