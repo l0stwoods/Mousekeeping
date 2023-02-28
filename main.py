@@ -47,9 +47,9 @@ def sleepwarn_window(): #sleep warning window function
 
 def settings_window(): #settings window function
     layout = [
-        [psg.Text('Set Work Time', size =(15, 1)), psg.InputText(key='work_in', enable_events=True)],
-        [psg.Text('Set Break Time', size =(15, 1)), psg.InputText(key='break_in', enable_events=True)],
-        [psg.Text('Set Bed Time (hr:min)', size =(15, 1)), psg.InputText(key='bed_time', enable_events=True)],
+        [psg.Text('Set Work Time', size =(18, 1)), psg.InputText(key='work_in', enable_events=True, s=15)],
+        [psg.Text('Set Break Time', size =(18, 1)), psg.InputText(key='break_in', enable_events=True, s=15)],
+        [psg.Text('Set Bed Time (hr:min)', size =(18, 1)), psg.InputText(key='bed_time', enable_events=True, s=15)],
         [psg.Submit(), psg.Cancel()]
     ]
     window = psg.Window('Settings', layout)
