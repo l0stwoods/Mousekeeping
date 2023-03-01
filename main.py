@@ -2,15 +2,15 @@ from pathlib import Path
 import PySimpleGUI as psg
 import time
 
+ANIMALS = ['Mouse', 'Otter']
+
 # heavily guided by https://www.youtube.com/watch?v=pmDdUT2Txbs
 
 '''
 Functionality still to be added:
-- add other config file arguments to settings menu
-    - ex: bed time, sleep warning etc
-- make settings menu only take valid arguments
-    - just add if statements to check validity before writing
-- make the sleep and work pop up windows and add images
+- make the sleep pop up window
+    - prevent mouse movement
+- add images
 
 Probably stretch goals:
 - alt-text/hover text
@@ -35,8 +35,39 @@ def timetosec(t):
     sec = int(t_array[0]) * 3600 + int(t_array[1]) * 60
     return sec
 
-def sleepwarn_window(sleep_warning): #sleep warning window function
+# does the reverse of timetosec, returns HH:MM
+def sectotime(s):
+    hour = (s // 60) // 60
+    mins = (s // 60) % 60 
+    return f"{hour:0>2}:{mins:0>2}"
 
+def sleep_window(animal, wake_time):
+    global ANIMALS
+    wake_timef = sectotime(wake_time) # formatted version of wake_time
+    layout = [
+        [psg.T(f"Current time: {get_current_time()}", key="current_time")],
+        [psg.T(ANIMALS[animal] + f" is asleep until {wake_timef}.")],
+        [psg.T("[Image goes here]")],
+        [psg.T("If you do work you'll wake them!")],
+    ]
+    window = psg.Window(
+        'Bedtime!', layout, 
+        keep_on_top=True, grab_anywhere=True, no_titlebar=True
+    )
+
+    while True:
+        event, values = window.read(timeout=10)
+        if get_current_time() == wake_timef:
+            break
+        if event == psg.WINDOW_CLOSED:
+            break
+        window['current_time'].update(f"Current time: {get_current_time()}")
+
+    window.close()
+
+
+def sleepwarn_window(animal, sleep_warning): #sleep warning window function
+    global ANIMALS
     # not sure if this would be better as a blocking window, or a non-blocking popup that doesn't update
 
     # records current time the window pops up
@@ -44,7 +75,7 @@ def sleepwarn_window(sleep_warning): #sleep warning window function
     i = int(time.time()) - start
 
     layout = [
-        [psg.T(f'{sleep_warning - i} seconds before sleep', key='sleep_warning')]
+        [psg.T(f'{sleep_warning - i} seconds before {ANIMALS[animal]} goes to sleep!', key='sleep_warning')]
     ]
     window = psg.Window(
         'Bedtime Reminder', layout, 
@@ -58,15 +89,20 @@ def sleepwarn_window(sleep_warning): #sleep warning window function
         if i >= sleep_warning or event == psg.WINDOW_CLOSED:
             break
         else:
-            window['sleep_warning'].update(f'{sleep_warning - i} seconds before sleep')
+            window['sleep_warning'].update(f'{sleep_warning - i} seconds before {ANIMALS[animal]} goes to sleep!')
     
     window.close()
 
-def settings_window(): #settings window function
+
+def settings_window(animal): #settings window function
+    global ANIMALS
     layout = [
         [psg.Text('Set Work Time (mins)', size =(18, 1)), psg.InputText(key='work_in', enable_events=True, s=15)],
         [psg.Text('Set Break Time (mins)', size =(18, 1)), psg.InputText(key='break_in', enable_events=True, s=15)],
         [psg.Text('Set Bed Time (hr:min)', size =(18, 1)), psg.InputText(key='bed_time', enable_events=True, s=15)],
+        [psg.Text('Set Wake Time (hr:min)', size =(18, 1)), psg.InputText(key='wake_time', enable_events=True, s=15)],
+        [psg.Text('Choose Animal:', size =(18, 1))],
+        [psg.Combo(ANIMALS, default_value=ANIMALS[animal], key='animal_choice')],
         [psg.Submit(), psg.Cancel()]
     ]
     window = psg.Window('Settings', layout)
@@ -89,6 +125,9 @@ def settings_window(): #settings window function
         elif event == 'bed_time' and values['bed_time'] and values['bed_time'][-1] not in '0123456789:':
             window['bed_time'].update(values['bed_time'][:-1])
 
+        elif event == 'wake_time' and values['wake_time'] and values['wake_time'][-1] not in '0123456789:':
+            window['wake_time'].update(values['wake_time'][:-1])
+
         # submit settings event
         elif event == "Submit":
             # replaces setting only if input is given to field
@@ -98,9 +137,13 @@ def settings_window(): #settings window function
                 settings['GUI']['break_period'] = int(values['break_in'])*60
             if values['bed_time'] != '':
                 settings['GUI']['bed_time'] = timetosec(values['bed_time'])
+            if values['wake_time'] != '':
+                settings['GUI']['wake_time'] = timetosec(values['wake_time'])
+            settings['GUI']['animal'] = ANIMALS.index(values['animal_choice'])
             break
 
     window.close()
+
 
 def main_window():
 
@@ -108,8 +151,12 @@ def main_window():
     work_period = int(settings['GUI']['work_period']) 
     break_period = int(settings['GUI']['break_period']) 
     bed_time = int(settings['GUI']['bed_time'])
+    wake_time = int(settings['GUI']['wake_time'])
     sleep_warning = int(settings['GUI']['sleep_warning'])
     periods = [work_period, break_period]
+
+    # 0 -> mouse, 1 -> otter
+    animal = int(settings['GUI']['animal'])
 
     work_time = True # True -> periods[0], False -> periods[1]
     time_left = work_period
@@ -135,24 +182,20 @@ def main_window():
 
     # main loop
     while True:
-        event, values = window.read(timeout=1)
+        event, values = window.read(timeout=10)
         if event in (psg.WINDOW_CLOSED, "Cancel"):
             break
 
-        # sleep event
+        # sleep + warning event
         # finds current time in seconds and compares to stored bed time
-        if (int(time.time())+time_zone+sleep_warning)%86400 == bed_time:
-            print("bed time!")
-            # sleepwarn_window(sleep_warning)
-
-        # sleep warn event
-        # finds current time in seconds and compares to stored bed time
-        elif (int(time.time())+time_zone)%86400 == bed_time:
+        if (int(time.time())+time_zone)%86400 == bed_time:
             if not sleep_mode:
                 print("bed time warning!")
             # still need to add a window pop up when this goes off
-            sleepwarn_window(sleep_warning)
-            sleep_mode = True
+            sleepwarn_window(animal, sleep_warning)
+            # sleep_mode = True
+            sleep_window(animal, wake_time)
+            window.BringToFront()
 
             # ====== consider combining the bed time event here ======
 
@@ -184,9 +227,11 @@ def main_window():
 
         #Settings event
         elif event == 'Settings':
-            settings_window()
+            settings_window(animal)
 
             bed_time = int(settings['GUI']['bed_time'])
+            wake_time = int(settings['GUI']['wake_time'])
+            animal = int(settings['GUI']['animal'])
             # update period lengths and timerwith new settings
             if not paused and work_period != int(settings['GUI']['work_period']) or break_period != int(settings['GUI']['break_period']):
                 work_period = int(settings['GUI']['work_period'])
@@ -223,6 +268,7 @@ def main_window():
             window['timer_name'].update(f"{'Work' if work_time else 'Break'} Timer:")
 
     window.close()
+
 
 if __name__ == "__main__":  # main code, runs on load
 
