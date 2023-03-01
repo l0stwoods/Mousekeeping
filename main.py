@@ -43,11 +43,17 @@ def sectotime(s):
 
 def sleep_window(animal, wake_time):
     global ANIMALS
+
+    if animal == 0:
+        animal_sleep_image = "images//mouse//mouse_asleep.png"
+    else:
+        animal_sleep_image = "images//otter//otter_asleep.png"
+
     wake_timef = sectotime(wake_time) # formatted version of wake_time
     layout = [
-        [psg.T(f"Current time: {get_current_time()}", key="current_time")],
+        [psg.T(f"Current Time: {get_current_time()}", key="current_time")],
         [psg.T(ANIMALS[animal] + f" is asleep until {wake_timef}.")],
-        [psg.T("[Image goes here]")],
+        [psg.Image(animal_sleep_image)],
         [psg.T("If you do work you'll wake them!")],
     ]
     window = psg.Window(
@@ -61,7 +67,7 @@ def sleep_window(animal, wake_time):
             break
         if event == psg.WINDOW_CLOSED:
             break
-        window['current_time'].update(f"Current time: {get_current_time()}")
+        window['current_time'].update(f"Current Time: {get_current_time()}")
 
     window.close()
 
@@ -74,8 +80,15 @@ def sleepwarn_window(animal, sleep_warning): #sleep warning window function
     start = int(time.time())
     i = int(time.time()) - start
 
+    if animal == 0:
+        sleepy_image = "images//mouse//mouse_tired.png"
+    else:
+        sleepy_image = "images//otter//otter_tired.png"
+
     layout = [
-        [psg.T(f'{sleep_warning - i} seconds before {ANIMALS[animal]} goes to sleep!', key='sleep_warning')]
+        [psg.T(f'{sleep_warning - i} seconds before {ANIMALS[animal]} goes to sleep!', key='sleep_warning')],
+         [psg.Image(sleepy_image)],
+         [psg.T("Finish up what you have to before bedtime!")]
     ]
     window = psg.Window(
         'Bedtime Reminder', layout, 
@@ -93,6 +106,161 @@ def sleepwarn_window(animal, sleep_warning): #sleep warning window function
     
     window.close()
 
+
+def main_window():
+    global ANIMALS
+
+    # retrieve variables from config file 
+    work_period = int(settings['GUI']['work_period']) 
+    break_period = int(settings['GUI']['break_period']) 
+    bed_time = int(settings['GUI']['bed_time'])
+    wake_time = int(settings['GUI']['wake_time'])
+    sleep_warning = int(settings['GUI']['sleep_warning'])
+    periods = [work_period, break_period]
+
+    # 0 -> mouse, 1 -> otter
+    animal = int(settings['GUI']['animal'])
+
+    work_time = True # True -> periods[0], False -> periods[1]
+    time_left = work_period
+    paused = True
+    sleep_mode = False
+    start_time = -1
+
+    if animal == 0:
+        static_animal_image = "images//mouse//mouse_idle.png"
+    else:
+        static_animal_image = "images//otter//otter_idle.png"
+
+    time_zone = int(settings['GUI']['time_zone'])
+    print(time_zone)
+    title = settings['GUI']['title']
+    layout = [
+        [psg.T(f"Current Time: {get_current_time()}", key="current_time")],
+        #this is just to see the internal time for debugging sleep timer
+        #[psg.T(f"Current time: {(int(time.time())+time_zone)%86400}", key="time_s")],
+        [psg.Image(static_animal_image, key='animal_image')],
+        [psg.T(f"{'Work' if work_time else 'Break'} Timer:", key='timer_name')],
+        [psg.T(f"{(periods[i(work_time)] // 60):0>2}:{(periods[i(work_time)] % 60):0>2}{', Paused' if paused else ''}", key='timer')],
+        [psg.B("Start Working", key='toggle', enable_events=True), psg.B("Reset"), psg.B("Settings"), psg.Cancel()]
+    ]
+
+    # initialize window object 
+    window = psg.Window(title, layout)
+
+    # main loop
+    while True:
+        event, values = window.read(timeout=10)
+        if event in (psg.WINDOW_CLOSED, "Cancel"):
+            break
+
+        # sleep + warning event
+        # finds current time in seconds and compares to stored bed time
+        if (int(time.time())+time_zone)%86400 == bed_time:
+            if not sleep_mode:
+                print("bed time warning!")
+            # still need to add a window pop up when this goes off
+            sleepwarn_window(animal, sleep_warning)
+            # sleep_mode = True
+            sleep_window(animal, wake_time)
+            window.BringToFront()
+
+            # ====== consider combining the bed time event here ======
+
+            # idea: record the current mouse position when bedtime hits, 
+            #   if the mouse is in a different spot => user is awake 
+
+        # start timer event
+        elif event == 'toggle' and paused:
+            paused = False
+            start_time = int(time.time())
+            window['toggle'].update("Stop Working")
+            window.refresh()
+            # window.read(timeout=1)
+
+        # reset timer event
+        elif event == 'Reset':
+            periods = [int(settings['GUI']['work_period']), int(settings['GUI']['break_period'])]
+            start_time = int(time.time())
+            time_left = get_time_left(start_time, periods[i(work_time)])
+            print(animal)
+            if animal == 0:
+                window['animal_image'].update("images//mouse//mouse_idle.png")
+            else:
+                window['animal_image'].update("images//otter//otter_idle.png")
+# window.refresh()
+            # unsure if reset button should also pause the timer 
+
+        # stop timer event
+        elif event == 'toggle' and not paused:
+            paused = True
+            work_time = True
+            periods = [int(settings['GUI']['work_period']), int(settings['GUI']['break_period'])]
+            start_time = int(time.time())
+            time_left = get_time_left(start_time, periods[i(work_time)])
+            window['toggle'].update("Start Working")
+            window.refresh()
+
+        #Settings event
+        elif event == 'Settings':
+            settings_window(animal)
+
+            bed_time = int(settings['GUI']['bed_time'])
+            wake_time = int(settings['GUI']['wake_time'])
+            animal = int(settings['GUI']['animal'])
+            # update period lengths and timerwith new settings
+            if not paused and work_period != int(settings['GUI']['work_period']) or break_period != int(settings['GUI']['break_period']):
+                work_period = int(settings['GUI']['work_period'])
+                break_period = int(settings['GUI']['break_period'])
+                periods = [work_period, break_period]
+                time_left = get_time_left(start_time if start_time != -1 else int(time.time()), periods[i(work_time)])
+
+        if sleep_mode:
+            pass
+
+        # pause timer functionality during sleep mode
+        else: 
+            # update timer if not paused
+            if not paused: 
+                time_left = get_time_left(start_time, periods[i(work_time)])
+
+                # switch phases from work -> break or break -> work
+                if time_left <= 0:
+                    paused = False
+                    window['toggle'].update("Start Timer")
+                    if work_time:
+                        psg.popup_auto_close(
+                            f'Work time is over! Why not stand up with {ANIMALS[animal]}?',
+                            auto_close=True,
+                            auto_close_duration=20,
+                            keep_on_top=True
+                        )
+                        if animal == 0:
+                            window['animal_image'].update("images//mouse//mouse_stand.png")
+                        else:
+                            window['animal_image'].update("images//otter//otter_stand.png")
+                    else:
+                        psg.popup_auto_close(
+                            "Break time is over!",
+                            auto_close=True,
+                            auto_close_duration=20,
+                            keep_on_top=True
+                        )
+                        if animal == 0:
+                            window['animal_image'].update("images//mouse//mouse_idle.png")
+                        else:
+                            window['animal_image'].update("images//otter//otter_idle.png")
+                            
+                    work_time = not work_time
+                    start_time = int(time.time())
+                    time_left = get_time_left(start_time, periods[i(work_time)])
+
+            window['timer'].update(f"{(time_left // 60):0>2}:{(time_left % 60):0>2}{', Paused' if paused else ''}")
+            window['current_time'].update(f"Current Time: {get_current_time()}")
+            #window['time_s'].update(f"Current time: {(int(time.time())+time_zone)%86400}")
+            window['timer_name'].update(f"{'Work' if work_time else 'Break'} Timer:")
+
+    window.close()
 
 def settings_window(animal): #settings window function
     global ANIMALS
@@ -141,131 +309,6 @@ def settings_window(animal): #settings window function
                 settings['GUI']['wake_time'] = timetosec(values['wake_time'])
             settings['GUI']['animal'] = ANIMALS.index(values['animal_choice'])
             break
-
-    window.close()
-
-
-def main_window():
-
-    # retrieve variables from config file 
-    work_period = int(settings['GUI']['work_period']) 
-    break_period = int(settings['GUI']['break_period']) 
-    bed_time = int(settings['GUI']['bed_time'])
-    wake_time = int(settings['GUI']['wake_time'])
-    sleep_warning = int(settings['GUI']['sleep_warning'])
-    periods = [work_period, break_period]
-
-    # 0 -> mouse, 1 -> otter
-    animal = int(settings['GUI']['animal'])
-
-    work_time = True # True -> periods[0], False -> periods[1]
-    time_left = work_period
-    paused = True
-    sleep_mode = False
-    start_time = -1
-
-    time_zone = int(settings['GUI']['time_zone'])
-    print(time_zone)
-    title = settings['GUI']['title']
-    layout = [
-        [psg.T(f"Current time: {get_current_time()}", key="current_time")],
-        #this is just to see the internal time for debugging sleep timer
-        [psg.T(f"Current time: {(int(time.time())+time_zone)%86400}", key="time_s")],
-        [psg.T("")],
-        [psg.T(f"{'Work' if work_time else 'Break'} Timer:", key='timer_name')],
-        [psg.T(f"{(periods[i(work_time)] // 60):0>2}:{(periods[i(work_time)] % 60):0>2}{', Paused' if paused else ''}", key='timer')],
-        [psg.B("Start Timer", key='toggle', enable_events=True), psg.B("Reset Timer"), psg.B("Settings"), psg.Cancel()]
-    ]
-
-    # initialize window object 
-    window = psg.Window(title, layout)
-
-    # main loop
-    while True:
-        event, values = window.read(timeout=10)
-        if event in (psg.WINDOW_CLOSED, "Cancel"):
-            break
-
-        # sleep + warning event
-        # finds current time in seconds and compares to stored bed time
-        if (int(time.time())+time_zone)%86400 == bed_time:
-            if not sleep_mode:
-                print("bed time warning!")
-            # still need to add a window pop up when this goes off
-            sleepwarn_window(animal, sleep_warning)
-            # sleep_mode = True
-            sleep_window(animal, wake_time)
-            window.BringToFront()
-
-            # ====== consider combining the bed time event here ======
-
-            # idea: record the current mouse position when bedtime hits, 
-            #   if the mouse is in a different spot => user is awake 
-
-        # start timer event
-        elif event == 'toggle' and paused:
-            paused = False
-            start_time = int(time.time())
-            window['toggle'].update("Stop Timer")
-            window.refresh()
-            # window.read(timeout=1)
-
-        # reset timer event
-        elif event == 'Reset Timer':
-            periods = [int(settings['GUI']['work_period']), int(settings['GUI']['break_period'])]
-            start_time = int(time.time())
-            time_left = get_time_left(start_time, periods[i(work_time)])
-            work_time = True
-            # window.refresh()
-            # unsure if reset button should also pause the timer 
-
-        # stop timer event
-        elif event == 'toggle' and not paused:
-            paused = True
-            window['toggle'].update("Restart Timer")
-            window.refresh()
-
-        #Settings event
-        elif event == 'Settings':
-            settings_window(animal)
-
-            bed_time = int(settings['GUI']['bed_time'])
-            wake_time = int(settings['GUI']['wake_time'])
-            animal = int(settings['GUI']['animal'])
-            # update period lengths and timerwith new settings
-            if not paused and work_period != int(settings['GUI']['work_period']) or break_period != int(settings['GUI']['break_period']):
-                work_period = int(settings['GUI']['work_period'])
-                break_period = int(settings['GUI']['break_period'])
-                periods = [work_period, break_period]
-                time_left = get_time_left(start_time if start_time != -1 else int(time.time()), periods[i(work_time)])
-
-        if sleep_mode:
-            pass
-
-        # pause timer functionality during sleep mode
-        else: 
-            # update timer if not paused
-            if not paused: 
-                time_left = get_time_left(start_time, periods[i(work_time)])
-
-                # switch phases from work -> break or break -> work
-                if time_left <= 0:  
-                    psg.popup_auto_close(
-                        f"{'Work' if work_time else 'Break'} time is over!",
-                        auto_close=True,
-                        auto_close_duration=10,
-                        keep_on_top=True
-                    )
-                    work_time = not work_time
-                    paused = True
-                    window['toggle'].update("Start Timer")
-                    start_time = int(time.time())
-                    time_left = get_time_left(start_time, periods[i(work_time)])
-
-            window['timer'].update(f"{(time_left // 60):0>2}:{(time_left % 60):0>2}{', Paused' if paused else ''}")
-            window['current_time'].update(f"Current time: {get_current_time()}")
-            window['time_s'].update(f"Current time: {(int(time.time())+time_zone)%86400}")
-            window['timer_name'].update(f"{'Work' if work_time else 'Break'} Timer:")
 
     window.close()
 
