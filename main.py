@@ -142,7 +142,7 @@ def main_window():
         [psg.Image(static_animal_image, key='animal_image')],
         [psg.T(f"{'Work' if work_time else 'Break'} Timer:", key='timer_name')],
         [psg.T(f"{(periods[i(work_time)] // 60):0>2}:{(periods[i(work_time)] % 60):0>2}{', Paused' if paused else ''}", key='timer')],
-        [psg.B("Start Working", key='toggle', enable_events=True), psg.B("Reset"), psg.B("Settings"), psg.Cancel()]
+        [psg.B("Start Working", key='toggle', enable_events=True), psg.B("Reset"), psg.B("Settings"), psg.B("Exit", key="Cancel")]
     ]
 
     # initialize window object 
